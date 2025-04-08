@@ -1,0 +1,19 @@
+services:
+  letsencrypt:
+    container_name: letsencrypt
+    hostname: letsencrypt
+    build: ./build
+    restart: unless-stopped
+    environment: 
+      IMAGE: certbot/certbot:v3.3.0
+      EMAIL: john@doe.com
+      DATA_VOLUME: certificates
+      DOMAINS_CONF: /config/domains.conf
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/config:ro
+      - certificates:/etc/letsencrypt:rw
+volumes:
+  certificates:
