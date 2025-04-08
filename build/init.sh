@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (C) 2023 Alexander Wolz <mail@alexanderwolz.de>
 
 while getopts d?s opt; do
     case $opt in
@@ -14,23 +15,14 @@ done
 shift $((OPTIND - 1))
 [ "${1:-}" = "--" ] && shift
 
+DOMAINS_CONF="/config/domains.conf"
 if [ ! -f "$DOMAINS_CONF" ]; then
     echo "File '$DOMAINS_CONF' does not exist"
     exit 1
 fi
 
-if [ -z "$DATA_VOLUME" ]; then
-    echo "Missing ENV Parameter \$DATA_VOLUME"
-    exit 1
-fi
-
 if [ -z $EMAIL ]; then
     echo "Missing ENV Parameter \$EMAIL"
-    exit 1
-fi
-
-if [ -z $IMAGE ]; then
-    echo "Missing ENV Parameter \$IMAGE"
     exit 1
 fi
 
@@ -40,13 +32,6 @@ if [ $STAGING ]; then
 fi
 if [ $DRY_RUN ]; then
     echo "DRY RUN"
-fi
-
-#check if gateway is running
-GATEWAY_NAME=$(docker ps --filter "publish=80" --format "{{.Names}}")
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "stopping container $GATEWAY_NAME.."
-    docker stop $GATEWAY_NAME >/dev/null
 fi
 
 #create certificates for (multi) domains
@@ -72,18 +57,5 @@ while IFS= read DOMAINS; do
         fi
     fi
 done <$DOMAINS_CONF
-
-#restart gateway again if it was running
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "restarting container $GATEWAY_NAME.."
-    docker start $GATEWAY_NAME >/dev/null
-fi
-
-#restart mailserver again if it was running
-MAILSERVER_RUNNING=$(docker ps --filter "name=mailserver" -q)
-if [ ! -z "$MAILSERVER_RUNNING" ]; then
-    echo "restarting mailserver.."
-    docker restart mailserver >/dev/null
-fi
 
 echo "Finished certificate initiation"

@@ -1,0 +1,18 @@
+services:
+  letsencrypt:
+    container_name: letsencrypt
+    hostname: letsencrypt
+    build: ../build
+    restart: unless-stopped
+    environment:
+      EMAIL: john@doe.com
+      WEBROOT: /var/www/certbot
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ../build/config/domains.conf:/config/domains.conf:ro
+      - certificates:/etc/letsencrypt:rw
+      - webroot:/var/www/certbot:rw
+volumes:
+  certificates:
+  webroot:
