@@ -44,10 +44,8 @@ if [ "$STANDALONE" = true ] ; then
     else
         DOCKER_RUN+=" -v \"$DATA_VOLUME:/etc/letsencrypt\" certbot/certbot:$CERTBOT_VERSION $COMMAND"
     fi
-    echo "executing \"$DOCKER_RUN\""
     eval $DOCKER_RUN || exit 1
 else
-    echo "executing \"$COMMAND\""
     eval $COMMAND || exit 1
 fi
 
