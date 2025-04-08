@@ -1,36 +1,33 @@
-FROM alpine:3.20.0
+ARG CERTBOT_VERSION="v3.3.0"
+
+FROM certbot/certbot:${CERTBOT_VERSION}
 LABEL maintainer="mail@alexanderwolz.de"
+
+ARG CERTBOT_VERSION
 
 RUN apk add --no-cache bash docker-cli openssl \
     && addgroup -S -g 1000 letsencrypt \
     && adduser -S -u 1000 letsencrypt -G letsencrypt \
     && chown letsencrypt:letsencrypt /home/letsencrypt \
     && addgroup -S -g 998 docker \
-    && adduser letsencrypt docker \
-    #run once per day at 02:10 - 10 2 * * *
-    && echo "10 2 * * * bash /home/letsencrypt/renew.sh" > /home/letsencrypt/.cronjob \
-    && chown letsencrypt:letsencrypt /home/letsencrypt/.cronjob \
-    #we need to run as root because of the docker socket
-    && crontab -u root /home/letsencrypt/.cronjob
+    && adduser letsencrypt docker
+
+WORKDIR /
+COPY --chown=letsencrypt:letsencrypt config config
+COPY --chown=letsencrypt:letsencrypt entrypoint.sh entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 WORKDIR /home/letsencrypt
-
 COPY --chown=letsencrypt:letsencrypt create.sh create.sh
 COPY --chown=letsencrypt:letsencrypt init.sh init.sh
 COPY --chown=letsencrypt:letsencrypt renew.sh renew.sh
 
-ENV DATA_VOLUME=volume
-#ENV DATA_VOLUME_SUBFOLDER=subfolder
-ENV DOMAINS_CONF=/config/domains.conf
+ENV CERTBOT_VERSION=${CERTBOT_VERSION}
+ENV CRON_PATTERN="0 3 * * *"
+ENV WEBROOT="/var/www/certbot"
+ENV STANDALONE=false
+ENV DATA_VOLUME=""
+ENV DATA_VOLUME_SUBFOLDER=""
 
-#USER letsencrypt #TODO let this container run as non-root
-CMD [ "crond", "-f", "-L", "/dev/stdout" ]
-
-#INFO: we dont inherit from certbot here, because if the gateway is down, we cant retrieve acme tokens.
-# If it then runs at standalone, it needs to bind on port 80, which will not work if gateway runs.
-# so either gateway needs to be runnable at all times or we spawn certbot from this alpine (See renew.sh)
-
-#FROM certbot/certbot:v2.10.0
-
-##override certbot entrypoint
-#ENTRYPOINT [ ]
+CMD [ "/bin/bash" ]
+ENTRYPOINT ["/entrypoint.sh"]

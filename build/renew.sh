@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (C) 2023 Alexander Wolz <mail@alexanderwolz.de>
 
 NOW=$(date +"%Y%m%d_T%H%M%S")
 echo "---------------------------------------------------------------"
@@ -18,38 +19,41 @@ if [ $DRY_RUN ]; then
 fi
 echo $MSG
 
-#check if gateway is running
-GATEWAY_NAME=$(docker ps --filter "publish=80" --format "{{.Names}}")
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "stopping container $GATEWAY_NAME.."
-    docker stop $GATEWAY_NAME >/dev/null
+source /config/pre.sh renew
+
+if [ "$STANDALONE" = true ] ; then
+    COMMAND="renew --authenticator standalone"
+    if [ -z $DATA_VOLUME ]; then
+        echo "Standalone Mode: Missing ENV Parameter \$DATA_VOLUME"
+        exit 1
+    fi
+else
+    COMMAND="certbot renew --non-interactive --webroot -w $WEBROOT"
 fi
 
-COMMAND="renew --authenticator standalone"
 if [ $DRY_RUN ]; then
     COMMAND+=" --dry-run"
 fi
 
 BEGIN=$(date -u +%s)
 
-if [ ! -z "$DATA_VOLUME_SUBFOLDER" ]; then
-    docker run --rm --name certbot-standalone -p 80:80 --mount source="$DATA_VOLUME",target=/etc/letsencrypt,volume-subpath=$DATA_VOLUME_SUBFOLDER $IMAGE $COMMAND
+if [ "$STANDALONE" = true ] ; then
+    DOCKER_RUN="docker run --rm --name certbot-standalone -p 80:80"
+    if [ ! -z "$DATA_VOLUME_SUBFOLDER" ]; then
+        DOCKER_RUN+=" --mount source=\"$DATA_VOLUME\",target=/etc/letsencrypt,volume-subpath=$DATA_VOLUME_SUBFOLDER certbot/certbot:$CERTBOT_VERSION $COMMAND" 
+    else
+        DOCKER_RUN+=" -v \"$DATA_VOLUME:/etc/letsencrypt\" certbot/certbot:$CERTBOT_VERSION $COMMAND"
+    fi
+    echo "executing \"$DOCKER_RUN\""
+    eval $DOCKER_RUN || exit 1
 else
-    docker run --rm --name certbot-standalone -p 80:80 -v "$DATA_VOLUME:/etc/letsencrypt" $IMAGE $COMMAND
+    echo "executing \"$COMMAND\""
+    eval $COMMAND || exit 1
 fi
+
+
 DURATION=$(($(date -u +%s)-$BEGIN))
 
-#restart gateway again if it was running
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "restarting container $GATEWAY_NAME.."
-    docker start $GATEWAY_NAME >/dev/null
-fi
-
-#restart mailserver again if it was running
-MAILSERVER_RUNNING=$(docker ps --filter "name=mailserver" -q)
-if [ ! -z "$MAILSERVER_RUNNING" ]; then
-    echo "restarting mailserver.."
-    docker restart mailserver >/dev/null
-fi
+source /config/post.sh renew
 
 echo "Finished certificate renewal in $(($DURATION / 60)) minutes and $(($DURATION % 60)) seconds"

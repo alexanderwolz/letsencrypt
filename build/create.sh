@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (C) 2023 Alexander Wolz <mail@alexanderwolz.de>
 
 while getopts d?s opt; do
     case $opt in
@@ -14,30 +15,24 @@ done
 shift $((OPTIND - 1))
 [ "${1:-}" = "--" ] && shift
 
-if [ -z "$DATA_VOLUME" ]; then
-    echo "Missing ENV Parameter \$DATA_VOLUME"
-    exit 1
-fi
-
 if [ -z $EMAIL ]; then
     echo "Missing ENV Parameter \$EMAIL"
     exit 1
 fi
 
-if [ -z $IMAGE ]; then
-    echo "Missing ENV Parameter \$IMAGE"
-    exit 1
-fi
-
-#check if gateway is running
-GATEWAY_NAME=$(docker ps --filter "publish=80" --format "{{.Names}}")
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "stopping container $GATEWAY_NAME.."
-    docker stop $GATEWAY_NAME >/dev/null
-fi
+source /config/pre.sh create
 
 DOMAINS=$*
-COMMAND="certonly --authenticator standalone --non-interactive"
+
+if [ "$STANDALONE" = true ] ; then
+    COMMAND="certonly --authenticator standalone --non-interactive"
+    if [ -z $DATA_VOLUME ]; then
+        echo "Standalone Mode: Missing ENV Parameter \$DATA_VOLUME"
+        exit 1
+    fi
+else
+    COMMAND="certbot certonly --non-interactive --webroot -w $WEBROOT"
+fi
 #COMMAND+=" --rsa-key-size 4096" 
 #COMMAND+=" --rsa-key-size 3072"
 ## read also https://stackoverflow.com/questions/589834/what-rsa-key-length-should-i-use-for-my-ssl-certificates
@@ -57,10 +52,18 @@ if [ $DRY_RUN ]; then
     COMMAND+=" --dry-run"
 fi
 
-if [ ! -z "$DATA_VOLUME_SUBFOLDER" ]; then
-    docker run --rm --name certbot-standalone -p 80:80 --mount source="$DATA_VOLUME",target=/etc/letsencrypt,volume-subpath=$DATA_VOLUME_SUBFOLDER $IMAGE $COMMAND
+if [ "$STANDALONE" = true ] ; then
+    DOCKER_RUN="docker run --rm --name certbot-standalone -p 80:80"
+    if [ ! -z "$DATA_VOLUME_SUBFOLDER" ]; then
+        DOCKER_RUN+=" --mount source=\"$DATA_VOLUME\",target=/etc/letsencrypt,volume-subpath=$DATA_VOLUME_SUBFOLDER certbot/certbot:$CERTBOT_VERSION $COMMAND" 
+    else
+        DOCKER_RUN+=" -v \"$DATA_VOLUME:/etc/letsencrypt\" certbot/certbot:$CERTBOT_VERSION $COMMAND"
+    fi
+    echo "executing \"$DOCKER_RUN\""
+    eval $DOCKER_RUN || exit 1
 else
-    docker run --rm --name certbot-standalone -p 80:80 -v "$DATA_VOLUME:/etc/letsencrypt" $IMAGE $COMMAND
+    echo "executing \"$COMMAND\""
+    eval $COMMAND || exit 1
 fi
 
 if [ "$?" -ne 0 ]; then
@@ -68,11 +71,7 @@ if [ "$?" -ne 0 ]; then
     HAS_ERRORS=true
 fi
 
-#restart gateway again if it was running
-if [ ! -z "$GATEWAY_NAME" ]; then
-    echo "restarting container $GATEWAY_NAME.."
-    docker start $GATEWAY_NAME >/dev/null
-fi
+source /config/post.sh create
 
 if [ ! -z "$HAS_ERRORS" ]; then
     exit 1
