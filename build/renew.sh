@@ -19,6 +19,7 @@ if [ $DRY_RUN ]; then
 fi
 echo $MSG
 
+echo "executing pre script.."
 source /config/pre.sh renew
 
 if [ "$STANDALONE" = true ] ; then
@@ -52,6 +53,7 @@ fi
 
 DURATION=$(($(date -u +%s)-$BEGIN))
 
+echo "executing post script.."
 source /config/post.sh renew
 
 echo "Finished certificate renewal in $(($DURATION / 60)) minutes and $(($DURATION % 60)) seconds"

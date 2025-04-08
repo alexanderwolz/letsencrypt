@@ -20,6 +20,7 @@ if [ -z $EMAIL ]; then
     exit 1
 fi
 
+echo "executing pre script.."
 source /config/pre.sh create
 
 DOMAINS=$*
@@ -69,6 +70,7 @@ if [ "$?" -ne 0 ]; then
     HAS_ERRORS=true
 fi
 
+echo "executing post script.."
 source /config/post.sh create
 
 if [ ! -z "$HAS_ERRORS" ]; then
