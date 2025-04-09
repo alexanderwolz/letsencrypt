@@ -5,7 +5,7 @@
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/alexanderwolz/letsencrypt)
 ![GitHub all releases](https://img.shields.io/github/downloads/alexanderwolz/letsencrypt/total?color=informational)
 
-## About
+## 🧑‍💻 About
 
 This repository holds a Dockerfile to provide a CRON'ed execution of letsencrypt's cerbot renew procedure.
 
