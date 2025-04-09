@@ -1,7 +1,7 @@
 services:
-  letsencrypt:
-    container_name: letsencrypt
-    hostname: letsencrypt
+  letsencrypt_standalone:
+    container_name: letsencrypt_standalone
+    hostname: letsencrypt_standalone
     build: ../build
     restart: unless-stopped
     environment:

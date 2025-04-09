@@ -1,4 +1,4 @@
-ARG CERTBOT_VERSION="v3.3.0"
+ARG CERTBOT_VERSION="v4.0.0"
 
 FROM certbot/certbot:${CERTBOT_VERSION}
 LABEL maintainer="mail@alexanderwolz.de"
